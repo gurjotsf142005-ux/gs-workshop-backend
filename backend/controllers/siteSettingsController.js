@@ -39,6 +39,7 @@ exports.updateSiteSettings = async (req, res) => {
       // Contact
       'contactEyebrow', 'contactHeadline', 'contactDescription', 'contactName',
       'contactEmail', 'contactInstagram', 'contactGithub', 'contactButtonText',
+      'contactPhone', 'customContacts',
       // Footer
       'footerBrand', 'footerCopy', 'footerLinks',
     ];
