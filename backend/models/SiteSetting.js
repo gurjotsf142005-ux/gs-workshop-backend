@@ -7,6 +7,13 @@ const aboutCardSchema = new mongoose.Schema({ title: String, subtitle: String, b
 const navLinkSchema = new mongoose.Schema({ label: String, href: String }, { _id: false });
 const footerLinkSchema = new mongoose.Schema({ label: String, href: String }, { _id: false });
 
+// ── Custom Contacts Sub-schema ──────────────────────────────────
+const customContactSchema = new mongoose.Schema({
+  label: String,
+  value: String,
+  href: String
+}, { _id: false });
+
 const siteSettingSchema = new mongoose.Schema({
   // ── Navbar ──────────────────────────────────────────────────────
   navName:    { type: String, default: 'Gurjot Singh' },
@@ -81,8 +88,11 @@ const siteSettingSchema = new mongoose.Schema({
   contactEmail:       { type: String, default: 'your@email.com' },
   contactInstagram:   { type: String, default: '@yourhandle' },
   contactGithub:      { type: String, default: 'github.com/gurjot' },
-contactPhone: { type: String, default: '+91 00000 00000' },
+  contactPhone:       { type: String, default: '+91 00000 00000' },
   contactButtonText:  { type: String, default: 'Send a Message' },
+  
+  // Dynamic custom contacts array added here
+  customContacts:     { type: [customContactSchema], default: [] },
 
   // ── Footer ───────────────────────────────────────────────────────
   footerBrand: { type: String, default: 'GS WorkShope' },
