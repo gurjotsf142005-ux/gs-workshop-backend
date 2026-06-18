@@ -1,65 +1,17 @@
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const path = require('path');
-require('dotenv').config({ path: './config/.env' });
+const router = express.Router();
+const { adminAuth } = require('../middleware/authMiddleware');
+const { getAllProjects, createProject, updateProject, deleteProject } = require('../controllers/Project');
+const { getSiteSettings, updateSiteSettings } = require('../controllers/siteSettingsController');
 
-const connectDB = require('./config/db');
-const authRoutes = require('./routes/auth');
-const projectRoutes = require('./routes/project');
-const siteSettingsRoutes = require('./routes/siteSettings');
-const adminRoutes = require('./routes/admin');
+router.use(adminAuth);
 
-const app = express();
-connectDB();
+router.get('/projects',     getAllProjects);
+router.post('/projects',    createProject);
+router.put('/projects/:id', updateProject);
+router.delete('/projects/:id', deleteProject);
 
-// ── Security ─────────────────────────────────────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: { 'img-src': ["'self'", 'data:', 'blob:', 'https:'] },
-  },
-}));
+router.get('/settings', getSiteSettings);   // ← was missing, caused 404
+router.put('/settings', updateSiteSettings);
 
-app.use(cors({
-  origin: ["http://localhost:5173", "https://gs-workshop-frontend.vercel.app"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-
-// ── Rate limiting ─────────────────────────────────────────────────────────────
-app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: { error: 'Too many requests.' } }));
-app.use('/api/auth/', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts.' } }));
-
-app.use(express.json({ limit: '100kb' }));
-
-// ── Routes ───────────────────────────────────────────────────────────────────
-app.use('/api/auth',     authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/settings', siteSettingsRoutes);
-app.use('/api/admin',    adminRoutes);
-
-app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
-
-// ── Serve React build ────────────────────────────────────────────────────────
-const clientDist = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientDist));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(clientDist, 'index.html'), (err) => { if (err) next(); });
-});
-
-// ── Error handlers ───────────────────────────────────────────────────────────
-app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
-  });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+module.exports = router;

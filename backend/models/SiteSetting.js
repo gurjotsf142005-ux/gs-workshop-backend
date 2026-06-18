@@ -81,6 +81,7 @@ const siteSettingSchema = new mongoose.Schema({
   contactEmail:       { type: String, default: 'your@email.com' },
   contactInstagram:   { type: String, default: '@yourhandle' },
   contactGithub:      { type: String, default: 'github.com/gurjot' },
+contactPhone: { type: String, default: '+91 00000 00000' },
   contactButtonText:  { type: String, default: 'Send a Message' },
 
   // ── Footer ───────────────────────────────────────────────────────
