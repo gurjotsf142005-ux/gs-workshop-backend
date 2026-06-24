@@ -1,5 +1,6 @@
 const Project = require("../models/Project");
 
+// ── Public ────────────────────────────────────────────────────────────────
 exports.getProjects = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -15,12 +16,10 @@ exports.getProjects = async (req, res, next) => {
       ];
     }
 
+    if (req.query.featured === "true") filter.featured = true;
+
     const [projects, total] = await Promise.all([
-      Project.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Project.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit).lean(),
       Project.countDocuments(filter),
     ]);
 
@@ -45,24 +44,27 @@ exports.getProjectById = async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
-
     res.json({ success: true, data: project });
   } catch (error) {
     next(error);
   }
 };
 
+// ── Admin / write operations ─────────────────────────────────────────────
 exports.createProject = async (req, res, next) => {
   try {
-    const imageUrl = req.file?.url || "";
+    const imageUrl = req.file?.url || req.body.image || "";
 
     const project = await Project.create({
       title: req.body.title,
       description: req.body.description,
       image: imageUrl,
+      techStack: req.body.techStack || [],
       liveUrl: req.body.liveUrl || "",
       githubUrl: req.body.githubUrl || "",
-      featured: req.body.featured === "true",
+      featured: req.body.featured === true || req.body.featured === "true",
+      status: req.body.status || "published",
+      order: req.body.order ?? 0,
     });
 
     res.status(201).json({ success: true, data: project });
@@ -78,11 +80,19 @@ exports.updateProject = async (req, res, next) => {
       description: req.body.description,
       liveUrl: req.body.liveUrl,
       githubUrl: req.body.githubUrl,
-      featured: req.body.featured === "true",
+      techStack: req.body.techStack,
+      featured: req.body.featured === true || req.body.featured === "true",
+      status: req.body.status,
+      order: req.body.order,
     };
+
+    // Drop undefined keys so we don't overwrite existing values with undefined
+    Object.keys(updateData).forEach((k) => updateData[k] === undefined && delete updateData[k]);
 
     if (req.file?.url) {
       updateData.image = req.file.url;
+    } else if (req.body.image) {
+      updateData.image = req.body.image;
     }
 
     const project = await Project.findByIdAndUpdate(req.params.id, updateData, {
@@ -106,8 +116,24 @@ exports.deleteProject = async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
-
     res.json({ success: true, message: "Project deleted" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── Admin-only listing (full list incl. drafts, with optional limit/featured filter) ──
+exports.getAllProjects = async (req, res, next) => {
+  try {
+    const { limit, featured } = req.query;
+    const filter = {};
+    if (featured === "true") filter.featured = true;
+
+    const projects = await Project.find(filter)
+      .limit(parseInt(limit) || 50)
+      .sort({ order: 1, createdAt: -1 });
+
+    res.json({ success: true, data: projects });
   } catch (error) {
     next(error);
   }
