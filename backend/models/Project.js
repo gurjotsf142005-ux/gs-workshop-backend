@@ -15,7 +15,11 @@ const projectSchema = new mongoose.Schema({
 
 projectSchema.pre('validate', function (next) {
   if (!this.slug && this.title) {
-    this.slug = this.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    this.slug = this.title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
   next();
 });

@@ -1,53 +1,114 @@
-const Project = require('../models/Project');
+const Project = require("../models/Project");
 
-exports.getAllProjects = async (req, res) => {
+exports.getProjects = async (req, res, next) => {
   try {
-    const { featured, limit = 20, page = 1 } = req.query;
-    const filter = {};
-    if (featured === 'true') filter.featured = true;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 12, 1), 50);
+    const skip = (page - 1) * limit;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const filter = {};
+
+    if (req.query.search) {
+      filter.$or = [
+        { title: { $regex: req.query.search, $options: "i" } },
+        { description: { $regex: req.query.search, $options: "i" } },
+      ];
+    }
+
     const [projects, total] = await Promise.all([
-      Project.find(filter).sort({ order: 1, createdAt: -1 }).limit(Number(limit)).skip(skip),
+      Project.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       Project.countDocuments(filter),
     ]);
 
-    res.status(200).json({
-      projects,
-      pagination: { total, page: Number(page), pages: Math.ceil(total / Number(limit)) },
+    res.json({
+      success: true,
+      data: projects,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch projects.' });
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.createProject = async (req, res) => {
+exports.getProjectById = async (req, res, next) => {
   try {
-    const project = await Project.create(req.body);
-    res.status(201).json({ message: 'Project created.', project });
-  } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ error: 'A project with this title already exists.' });
-    res.status(400).json({ error: err.message });
+    const project = await Project.findById(req.params.id).lean();
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.json({ success: true, data: project });
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.updateProject = async (req, res) => {
+exports.createProject = async (req, res, next) => {
   try {
-    const project = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!project) return res.status(404).json({ error: 'Project not found' });
-    res.status(200).json({ message: 'Project updated.', project });
-  } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ error: 'A project with this title already exists.' });
-    res.status(400).json({ error: err.message });
+    const imageUrl = req.file?.url || "";
+
+    const project = await Project.create({
+      title: req.body.title,
+      description: req.body.description,
+      image: imageUrl,
+      liveUrl: req.body.liveUrl || "",
+      githubUrl: req.body.githubUrl || "",
+      featured: req.body.featured === "true",
+    });
+
+    res.status(201).json({ success: true, data: project });
+  } catch (error) {
+    next(error);
   }
 };
 
-exports.deleteProject = async (req, res) => {
+exports.updateProject = async (req, res, next) => {
+  try {
+    const updateData = {
+      title: req.body.title,
+      description: req.body.description,
+      liveUrl: req.body.liveUrl,
+      githubUrl: req.body.githubUrl,
+      featured: req.body.featured === "true",
+    };
+
+    if (req.file?.url) {
+      updateData.image = req.file.url;
+    }
+
+    const project = await Project.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.json({ success: true, data: project });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteProject = async (req, res, next) => {
   try {
     const project = await Project.findByIdAndDelete(req.params.id);
-    if (!project) return res.status(404).json({ error: 'Project not found' });
-    res.status(200).json({ message: 'Project deleted.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to delete.' });
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.json({ success: true, message: "Project deleted" });
+  } catch (error) {
+    next(error);
   }
 };

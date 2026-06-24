@@ -1,45 +1,40 @@
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('./config/db');
+require("dotenv").config();
 
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const projectRoutes = require('./routes/project');
-const siteSettingsRoutes = require('./routes/siteSettings');
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const compression = require("compression");
+const path = require("path");
+
+const { connectDB } = require("./config/db");
+const routes = require("./routes");
+const { errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
 
-// ── Middleware ──────────────────────────────────────────────────────────────
-// Explicitly allow all methods your frontend uses (GET, POST, PUT, PATCH, DELETE)
-// origin: true reflects whatever origin made the request — fine for now since
-// frontend (Vercel) and backend (Render) are on different domains.
+app.use(helmet());
 app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  credentials: true,
 }));
-app.use(express.json());
+app.use(compression());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-// ── Routes ──────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/settings', siteSettingsRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads"), {
+  maxAge: "30d",
+  etag: true,
+}));
 
-app.get('/', (req, res) => {
-  res.json({ message: 'GS WorkShope backend is running.' });
-});
+app.use("/api", routes);
 
-// ── 404 handler ────────────────────────────────────────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found.' });
-});
+app.use(errorHandler);
 
-// ── Connect to DB, then start server ─────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
+(async () => {
+  await connectDB();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-});
+})();
